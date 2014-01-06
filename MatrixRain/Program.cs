@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -31,10 +32,15 @@ namespace MatrixRain
 
     public class Row
     {
+        public Row()
+        {
+            Changes = new Dictionary<int, KeyValuePair<char, int>>();
+        }
         public char[] Letters;
         public int Position;
         public int X;
         public int Y;
+        public Dictionary<int, KeyValuePair<char, int>> Changes;
     }
 
 
@@ -49,7 +55,7 @@ namespace MatrixRain
         private readonly List<Brush> _tail; 
         
         private readonly List<Row> _rows;
-        private const int Total = 200;
+        private const int Total = 66;
         private DateTime _lastUpdate = DateTime.Now;
         private readonly int[] _slots = new int[Total];
         private const int Steps = 10;
@@ -168,11 +174,22 @@ namespace MatrixRain
                     {
                         item.Letters[item.Position - (item.Letters.Length + 1)] = Convert.ToChar(" ");
                     }
+
+                    if (_rng.Next(0, 10) == 1)
+                    {
+                        var addChange = _rng.Next(item.Letters.Length);
+                        if(!item.Changes.ContainsKey(addChange))
+                            item.Changes.Add(addChange,
+                                new KeyValuePair<char, int>(RandomString(1)[0], Steps - 1));
+                    }
+                        
+
                     if (item.Position >= item.Letters.Length * 2)
                     {
                         item.Letters = RandomString(_rng.Next(30, 80)).ToCharArray();
                         item.Y = _rng.Next(-200, 200);
                         item.Position = 0;
+                        item.Changes = new Dictionary<int, KeyValuePair<char, int>>();
                     }
                     item.Position++;
                     for (var i = 0; i < item.Letters.Length; i++)
@@ -187,8 +204,23 @@ namespace MatrixRain
                             _brush = Brushes.Black;
                         else if(i < tailEnd + Steps && i > tailEnd)
                             _brush = _tail[i - tailEnd];
-                        
-                        gfx.DrawString(item.Letters[i].ToString(CultureInfo.InvariantCulture), _font, _brush, item.X, item.Y + (i * height));
+
+                        if (item.Changes.ContainsKey(i))
+                        {
+                            item.Letters[i] = item.Changes[i].Key;
+                            if (item.Changes[i].Value > 0)
+                            {
+                                _brush = _head[Steps - item.Changes[i].Value];
+                            }
+                            else if (item.Changes[i].Value > -Steps+1)
+                            {
+                                _brush = _tail[Steps + item.Changes[i].Value - 1];
+                            }
+                            item.Changes[i] = new KeyValuePair<char, int>(item.Letters[i], item.Changes[i].Value - 1);
+                        }
+
+                        if(_brush != Brushes.Black)
+                            gfx.DrawString(item.Letters[i].ToString(CultureInfo.InvariantCulture), _font, _brush, item.X, item.Y + (i * height));
 
                     }
 
