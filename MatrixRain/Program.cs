@@ -57,6 +57,8 @@ namespace MatrixRain
         private readonly List<Row> _rows;
         private const int Total = 66;
         private DateTime _lastUpdate = DateTime.Now;
+        private DateTime _lastSlowUpdate = DateTime.Now;
+
         private readonly int[] _slots = new int[Total];
         private const int Steps = 10;
 
@@ -162,7 +164,14 @@ namespace MatrixRain
                 _activated++;
             }
             if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 15) return;
-            
+
+            bool slowUpdate = false;
+            if ((DateTime.Now - _lastUpdate).TotalMilliseconds > 15)
+            {
+                slowUpdate = true;
+                _lastSlowUpdate = DateTime.Now;
+            }
+
             using (var gfx = Graphics.FromImage(_bitmap))
             {
                 gfx.Clear(Color.Black);
@@ -216,7 +225,8 @@ namespace MatrixRain
                             {
                                 _brush = _tail[Steps + item.Changes[i].Value - 1];
                             }
-                            item.Changes[i] = new KeyValuePair<char, int>(item.Letters[i], item.Changes[i].Value - 1);
+                            if(slowUpdate)
+                                item.Changes[i] = new KeyValuePair<char, int>(item.Letters[i], item.Changes[i].Value - 1);
                         }
 
                         if(_brush != Brushes.Black)
