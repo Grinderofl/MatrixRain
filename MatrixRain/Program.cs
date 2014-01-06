@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -42,18 +43,18 @@ namespace MatrixRain
         private Bitmap _bitmap;
         private int _texture;
         //private readonly Font _font = new Font("Bookshelf Symbol 7", 12);
-        private readonly Font _font = new Font("Katakana", 12);
+        private readonly Font _font = new Font("Katakana", 14);
         private Brush _brush = new SolidBrush(Color.ForestGreen);
-        private readonly List<Brush> _sequence;
+        private readonly List<Brush> _head;
         private readonly List<Brush> _tail; 
-
-
+        
         private readonly List<Row> _rows;
         private const int Total = 200;
         private DateTime _lastUpdate = DateTime.Now;
         private readonly int[] _slots = new int[Total];
+        private const int Steps = 10;
 
-        private int _activated = 0;
+        private int _activated;
 
         public Game1()
             : base(800, 600, GraphicsMode.Default, "Sample")
@@ -61,33 +62,25 @@ namespace MatrixRain
             VSync = VSyncMode.On;
             WindowBorder = WindowBorder.Fixed;
             _rows = new List<Row>(Total);
-            for (int i = 0; i < Total; i++)
+            var measure = TextRenderer.MeasureText("i", _font);
+            // Random pixel placement
+            for (var i = 0; i < Total; i++)
             {
-                _slots[i] = (i*10) + _rng.Next(1, 5);
+                _slots[i] = (i*(measure.Width-4)); //+ _rng.Next(1, 5);
             }
 
+            // Ensure starting positions are random
             _slots = _slots.OrderBy(x => _rng.Next()).ToArray();
 
-            _sequence = new List<Brush>
-            {
-                new SolidBrush(Color.Green),
-                new SolidBrush(Color.ForestGreen),
-                new SolidBrush(Color.MediumSeaGreen),
-                new SolidBrush(Color.LimeGreen),
-                new SolidBrush(Color.LightGreen),
-                new SolidBrush(Color.PaleGreen),
-                new SolidBrush(Color.GreenYellow),
-                new SolidBrush(Color.White)
-            };
+            _head = new List<Brush>();
+            _tail = new List<Brush>();
 
-            _tail = new List<Brush>
+            for (var i = 0; i < Steps; i++)
             {
-                new SolidBrush(Color.DarkGreen),
-                new SolidBrush(Color.FromArgb(0, 74, 0)),
-                new SolidBrush(Color.FromArgb(0, 50, 0)),
-                new SolidBrush(Color.FromArgb(0, 30, 0)),
-                new SolidBrush(Color.FromArgb(0, 0, 0))
-            };
+                _head.Add(
+                    new SolidBrush(Color.FromArgb(0 + 255/Steps*(Steps - (i)), 255, 0 + 255/Steps*(Steps - i))));
+                _tail.Add(new SolidBrush(Color.FromArgb(0, 255 - 255 / Steps * (Steps - i), 0)));
+            }
         }
 
         private int CreateTexture()
@@ -116,11 +109,11 @@ namespace MatrixRain
                 gfx.DrawString("Hello world", _font, _brush, new PointF(0, 0));
             }
 
-            System.Drawing.Imaging.BitmapData data =
+            BitmapData data =
                 _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
-                    System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                    ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
             GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, _bitmap.Width, _bitmap.Height,
-                OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, data.Scan0);
+                PixelFormat.Bgra, PixelType.UnsignedByte, data.Scan0);
             _bitmap.UnlockBits(data);
         }
 
@@ -130,7 +123,6 @@ namespace MatrixRain
         {
             base.OnLoad(e);
             _bitmap = new Bitmap(ClientSize.Width, ClientSize.Height);
-            //_texture = GL.GenTexture();
             _texture = CreateTexture();
             GL.BindTexture(TextureTarget.Texture2D, _texture);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) All.Linear);
@@ -151,6 +143,7 @@ namespace MatrixRain
 
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
+            var height = _font.Height;
             base.OnUpdateFrame(e);
             if (Keyboard[Key.Escape]) Exit();
             if (_activated < Total)
@@ -178,32 +171,24 @@ namespace MatrixRain
                     if (item.Position >= item.Letters.Length * 2)
                     {
                         item.Letters = RandomString(_rng.Next(30, 80)).ToCharArray();
-                        //item.Letters = RandomString(30).ToCharArray();
                         item.Y = _rng.Next(-200, 200);
                         item.Position = 0;
                     }
                     item.Position++;
                     for (var i = 0; i < item.Letters.Length; i++)
                     {
-                        const int steps = 10;
                         _brush = new SolidBrush(Color.FromArgb(0, 255, 0));
-                        //_brush = _sequence[0];
                         if (item.Position < i) break;
-                        //if (item.Position - i < _sequence.Count)
-                        if(item.Position - i < steps)
-                            _brush = new SolidBrush(Color.FromArgb(0 + 255 / steps * (steps - (item.Position - i)), 255, 0 + 255 / steps * (steps - (item.Position - i))));
-                            //_brush = _sequence[7 - (item.Position - i)];
+                        if(item.Position - i < Steps)
+                            _brush = _head[item.Position - i];
 
-                        var tailEnd = item.Position - (item.Letters.Length - 8 - steps + 1);
+                        var tailEnd = item.Position - (item.Letters.Length - 8 - Steps + 1);
                         if (i <= tailEnd)
                             _brush = Brushes.Black;
-                        //else if (i < tailEnd + 4 && i > tailEnd)
-                        else if(i < tailEnd + steps && i > tailEnd)
-                        {
-                            //_brush = _tail[4-(i - tailEnd)];
-                            _brush = new SolidBrush(Color.FromArgb(0, 255 - 255 / steps * (steps - (i - tailEnd)), 0));
-                        }
-                        gfx.DrawString(item.Letters[i].ToString(), _font, _brush, item.X, item.Y + (i * 14));
+                        else if(i < tailEnd + Steps && i > tailEnd)
+                            _brush = _tail[i - tailEnd];
+                        
+                        gfx.DrawString(item.Letters[i].ToString(CultureInfo.InvariantCulture), _font, _brush, item.X, item.Y + (i * height));
 
                     }
 
