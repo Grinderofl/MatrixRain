@@ -49,13 +49,13 @@ namespace MatrixRain
         private Bitmap _bitmap;
         private int _texture;
         //private readonly Font _font = new Font("Bookshelf Symbol 7", 12);
-        private readonly Font _font = new Font("Katakana", 14);
+        private readonly Font _font = new Font("Katakana", 20);
         private Brush _brush = new SolidBrush(Color.ForestGreen);
         private readonly List<Brush> _head;
         private readonly List<Brush> _tail; 
         
         private readonly List<Row> _rows;
-        private const int Total = 66;
+        private const int Total = 158;
         private DateTime _lastUpdate = DateTime.Now;
         private DateTime _lastSlowUpdate = DateTime.Now;
 
@@ -65,10 +65,11 @@ namespace MatrixRain
         private int _activated;
 
         public Game1()
-            : base(800, 600, GraphicsMode.Default, "Sample")
+            : base(1024, 768, GraphicsMode.Default, "Sample")
         {
             VSync = VSyncMode.On;
-            WindowBorder = WindowBorder.Fixed;
+            //WindowBorder = WindowBorder.Fixed;
+            
             _rows = new List<Row>(Total);
             var measure = TextRenderer.MeasureText("i", _font);
             // Random pixel placement
@@ -108,28 +109,10 @@ namespace MatrixRain
             return textureId;
         }
 
-        public void UpdateText()
-        {
-            using (Graphics gfx = Graphics.FromImage(_bitmap))
-            {
-                gfx.Clear(Color.Black);
-                gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-                gfx.DrawString("Hello world", _font, _brush, new PointF(0, 0));
-            }
-
-            BitmapData data =
-                _bitmap.LockBits(new Rectangle(0, 0, _bitmap.Width, _bitmap.Height),
-                    ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, _bitmap.Width, _bitmap.Height,
-                PixelFormat.Bgra, PixelType.UnsignedByte, data.Scan0);
-            _bitmap.UnlockBits(data);
-        }
-
-        
-
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            //WindowState = WindowState.Maximized;
             _bitmap = new Bitmap(ClientSize.Width, ClientSize.Height);
             _texture = CreateTexture();
             GL.BindTexture(TextureTarget.Texture2D, _texture);
@@ -138,6 +121,25 @@ namespace MatrixRain
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, _bitmap.Width, _bitmap.Height, 0,
                 PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
 
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            GL.Viewport(ClientRectangle);
+            GL.MatrixMode(MatrixMode.Projection);
+            GL.LoadIdentity();
+            GL.Ortho(-1.0, 1.0, -1.0, 1.0, 0.0, 4.0);
+
+            _bitmap.Dispose();
+            _bitmap = new Bitmap(ClientSize.Width, ClientSize.Height);
+            GL.BindTexture(TextureTarget.Texture2D, _texture);
+            BitmapData data = _bitmap.LockBits(new System.Drawing.Rectangle(0, 0, _bitmap.Width, _bitmap.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, data.Width, data.Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, data.Scan0);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+            GL.Finish();
+            _bitmap.UnlockBits(data);
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
@@ -280,6 +282,8 @@ namespace MatrixRain
             }
         }
 
+        private string _debugInfo1 = "";
+
         public void Draw()
         {
             GL.PushMatrix();
@@ -291,11 +295,17 @@ namespace MatrixRain
             GL.PushMatrix();//
             GL.LoadMatrix(ref orthoProjection);
 
-            GL.Enable(EnableCap.Blend);
-            GL.BlendFunc(BlendingFactorSrc.One, BlendingFactorDest.DstColor);
+            //GL.Enable(EnableCap.Blend);
+            //GL.BlendFunc(BlendingFactorSrc.One, BlendingFactorDest.DstColor);
             GL.Enable(EnableCap.Texture2D);
             GL.BindTexture(TextureTarget.Texture2D, _texture);
 
+            var debugInfo1 = string.Format("New dimensions rendered: {0}x{1}, Client: {2}x{3}", _bitmap.Width, _bitmap.Height, ClientSize.Width, ClientSize.Height);
+            if (debugInfo1 != _debugInfo1)
+            {
+                _debugInfo1 = debugInfo1;
+                Console.WriteLine(debugInfo1);
+            }
 
             GL.Begin(PrimitiveType.Quads);
             GL.TexCoord2(0, 0); GL.Vertex2(0, 0);
@@ -305,7 +315,7 @@ namespace MatrixRain
             GL.End();
             GL.PopMatrix();
 
-            GL.Disable(EnableCap.Blend);
+            //GL.Disable(EnableCap.Blend);
             GL.Disable(EnableCap.Texture2D);
 
             GL.MatrixMode(MatrixMode.Modelview);
