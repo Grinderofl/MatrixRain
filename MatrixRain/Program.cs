@@ -49,7 +49,8 @@ namespace MatrixRain
         private Bitmap _bitmap;
         private int _texture;
         //private readonly Font _font = new Font("Bookshelf Symbol 7", 12);
-        private readonly Font _font = new Font("Katakana", 20);
+        //private readonly Font _font = new Font("Katakana", 20);
+        private readonly Font _font = new Font("Matrix Code NFI", 20);
         private Brush _brush = new SolidBrush(Color.ForestGreen);
         private readonly List<Brush> _head;
         private readonly List<Brush> _tail; 
@@ -89,6 +90,26 @@ namespace MatrixRain
                 _head.Add(
                     new SolidBrush(Color.FromArgb(0 + 255/Steps*(Steps - (i)), 255, 0 + 255/Steps*(Steps - i))));
                 _tail.Add(new SolidBrush(Color.FromArgb(0, 255 - 255 / Steps * (Steps - i), 0)));
+            }
+            _weighs = new Dictionary<string, int>();
+            InitWeightedRandomList();
+
+        }
+
+        private void InitWeightedRandomList()
+        {
+            _weighs.Add("abcdefghijklmnopqrstuvwxyz", 5);
+            _weighs.Add("$+-*/%=\"'#&_(),.?!\\^~][{}|", 5);
+            _weighs.Add("0123456789", 1);
+            _weighs.Add(" ", 5);
+
+            Chars = "";
+            foreach (var item in _weighs)
+            {
+                for (var i = 0; i < item.Value; i++)
+                {
+                    Chars += item.Key;
+                }
             }
         }
 
@@ -325,9 +346,11 @@ namespace MatrixRain
         #region Random numbers
 
         private static readonly Random _rng = new Random();
-        private const string Chars = "ABCDEFGHIJKLMNOPQRSTUVWXY";
+        private string Chars = "ABCDEFGHIJKLMNOPQRSTUVWXY";
 
-        private static string RandomString(int size)
+        private readonly Dictionary<string, int> _weighs;
+
+        private string RandomString(int size)
         {
             var buffer = new char[size];
 
